@@ -1,0 +1,8 @@
+{
+  "name": "claude-burndown",
+  "displayName": "Claude Burndown (Enterprise Edition)",
+  "description": "Real-time rate-limit burndown and token usage accounting for Enterprise Claude Code and Claude Desktop.",
+  "version": "0.1.0",
+  "category": "developer-tools",
+  "tags": ["claude", "rate-limits", "quota", "usage", "enterprise"]
+}

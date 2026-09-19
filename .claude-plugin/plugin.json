@@ -1,0 +1,9 @@
+{
+  "name": "claude-burndown",
+  "description": "Enterprise Claude capacity service, rate-limit burndown per window, and per-request token usage ledger. Ships the on-demand /burndown skill.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Rudy Prokes"
+  },
+  "license": "MIT"
+}

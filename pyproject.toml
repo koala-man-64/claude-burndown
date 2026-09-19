@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-burndown"
+version = "0.1.0"
+description = "Enterprise Claude capacity service, rate-limit burndown, and token usage ledger."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Rudy Prokes"}
+]
+keywords = ["claude", "claude-code", "rate-limits", "quota", "burndown", "enterprise"]
+
+[project.scripts]
+claude-burndown = "claude_burndown.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
