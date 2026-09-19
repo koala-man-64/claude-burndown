@@ -1,0 +1,2184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recreate Claude Burndown — Agent & Developer Implementation Blueprint</title>
+  <style>
+    :root {
+      --brand-color: #d97706;
+      --brand-hover: #b45309;
+      --brand-light: #fef3c7;
+      --brand-dark: #78350f;
+      --bg: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-card: #1e293b;
+      --bg-card-alt: #283548;
+      --border: #334155;
+      --border-focus: #f59e0b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --accent-green: #10b981;
+      --accent-blue: #3b82f6;
+      --accent-purple: #8b5cf6;
+      --accent-red: #ef4444;
+      --code-bg: #0b1120;
+      --code-border: #1e293b;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+    }
+
+    [data-theme="light"] {
+      --brand-color: #d97706;
+      --brand-hover: #b45309;
+      --brand-light: #fffbeb;
+      --brand-dark: #78350f;
+      --bg: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-alt: #f1f5f9;
+      --border: #e2e8f0;
+      --border-focus: #d97706;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      --accent-green: #059669;
+      --accent-blue: #2563eb;
+      --accent-purple: #7c3aed;
+      --accent-red: #dc2626;
+      --code-bg: #1e293b;
+      --code-border: #cbd5e1;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 0 0 100px 0;
+      accent-color: var(--brand-color);
+      color-scheme: light dark;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    /* Sticky Header & Progress Bar */
+    header.sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 12px 24px;
+      backdrop-filter: blur(12px);
+    }
+
+    .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      color: white;
+      font-weight: 800;
+      font-size: 14px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .header-title h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      max-width: 480px;
+      min-width: 260px;
+    }
+
+    .progress-track {
+      flex: 1;
+      height: 10px;
+      background: var(--bg-card-alt);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #d97706);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button.btn-header {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.825rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    button.btn-header:hover {
+      background: var(--border);
+      border-color: var(--border-focus);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 32px auto 0;
+      padding: 0 24px;
+    }
+
+    /* Hero Banner */
+    .hero {
+      background: linear-gradient(145deg, var(--bg-surface), var(--bg-card-alt));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-eyebrow {
+      color: var(--brand-color);
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+    }
+
+    .hero h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 860px;
+      margin-bottom: 20px;
+    }
+
+    .pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .pill.green { border-color: var(--accent-green); color: var(--accent-green); }
+    .pill.amber { border-color: var(--brand-color); color: var(--brand-color); }
+    .pill.blue { border-color: var(--accent-blue); color: var(--accent-blue); }
+    .pill.purple { border-color: var(--accent-purple); color: var(--accent-purple); }
+
+    /* Search & Filter Bar */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+      align-items: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 10px;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 240px;
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .filter-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .filter-tag {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .filter-tag.active {
+      background: var(--brand-color);
+      border-color: var(--brand-color);
+      color: white;
+    }
+
+    /* Phase Sections */
+    .phase-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: border-color 0.2s ease;
+    }
+
+    .phase-header {
+      padding: 18px 24px;
+      background: var(--bg-card-alt);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .phase-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .phase-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--brand-color);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+
+    .phase-header h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .phase-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .phase-progress-pill {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+
+    .phase-toggle-icon {
+      transition: transform 0.2s ease;
+      font-size: 1rem;
+      color: var(--text-muted);
+    }
+
+    .phase-card.collapsed .phase-toggle-icon {
+      transform: rotate(-90deg);
+    }
+
+    .phase-card.collapsed .phase-body {
+      display: none;
+    }
+
+    .phase-body {
+      padding: 24px;
+    }
+
+    .phase-desc {
+      color: var(--text-muted);
+      margin-bottom: 20px;
+      font-size: 0.95rem;
+    }
+
+    /* Step Items & Checkboxes */
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .step-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      transition: all 0.2s ease;
+    }
+
+    .step-item:hover {
+      border-color: var(--border-focus);
+    }
+
+    .step-item.checked {
+      border-color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.04);
+    }
+
+    .step-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+    }
+
+    /* Canonical checkbox using accent-color */
+    .step-checkbox {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* Fallback for older browsers without accent-color */
+    @supports not (accent-color: var(--brand-color)) {
+      .step-checkbox {
+        appearance: none;
+        -webkit-appearance: none;
+        border: 2px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg-card-alt);
+        position: relative;
+      }
+      .step-checkbox:checked {
+        background: var(--brand-color);
+        border-color: var(--brand-color);
+      }
+      .step-checkbox:checked::after {
+        content: "✓";
+        position: absolute;
+        top: -2px;
+        left: 2px;
+        color: white;
+        font-size: 12px;
+        font-weight: bold;
+      }
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-title {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .step-item.checked .step-title {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+
+    .step-detail {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .step-tags {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .step-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--bg-card-alt);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+    }
+
+    /* Code Blocks & Accordions */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 6px;
+      margin: 10px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .code-header {
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--text-muted);
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .copy-btn:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    pre {
+      padding: 12px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    p code, li code {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      color: var(--brand-color);
+    }
+
+    /* Collapsible Details */
+    details.guide-details {
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-top: 10px;
+      padding: 8px 12px;
+    }
+
+    details.guide-details summary {
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--brand-color);
+      outline: none;
+    }
+
+    details.guide-details summary:hover {
+      color: var(--brand-hover);
+    }
+
+    details.guide-details .details-body {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
+    /* Callout Boxes */
+    .callout {
+      border-left: 4px solid;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 12px 0;
+      background: var(--bg-card-alt);
+      font-size: 0.9rem;
+    }
+
+    .callout.tip { border-color: var(--accent-green); }
+    .callout.warning { border-color: var(--accent-red); }
+    .callout.info { border-color: var(--accent-blue); }
+    .callout.rule { border-color: var(--brand-color); }
+
+    .callout-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Architecture Diagram */
+    .diag-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+      overflow-x: auto;
+    }
+
+    svg.arch-diag {
+      width: 100%;
+      max-width: 900px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* Tables */
+    .table-wrap {
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    table.spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    table.spec-table th, table.spec-table td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    table.spec-table th {
+      background: var(--bg-card-alt);
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--text);
+      color: var(--bg);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      transform: translateY(10px);
+      z-index: 9999;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .progress-container {
+        max-width: 100%;
+      }
+      .hero {
+        padding: 20px;
+      }
+      .phase-header {
+        padding: 14px 16px;
+      }
+      .phase-body {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- Sticky Header with Real-Time Progress -->
+  <header class="sticky-header">
+    <div class="header-content">
+      <div class="header-title">
+        <span class="logo-badge">CLAUDE BURNDOWN</span>
+        <h1>Recreation Blueprint</h1>
+      </div>
+
+      <div class="progress-container">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span class="progress-label" id="progressLabel">0 / 48 (0%)</span>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn-header" id="btnToggleAll" title="Toggle expand/collapse all phases">
+          <span>Expand All</span>
+        </button>
+        <button class="btn-header" id="btnReset" title="Reset all checked items">
+          <span>Reset</span>
+        </button>
+        <button class="btn-header" id="btnTheme" title="Toggle light/dark theme">
+          <span id="themeIcon">☀️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- Hero Banner -->
+    <div class="hero">
+      <div class="hero-eyebrow">Enterprise Reference Specification</div>
+      <h2>Rebuilding Claude Burndown from Scratch</h2>
+      <p>
+        This blueprint gives autonomous agents and systems engineers complete, step-by-step instructions
+        to reproduce the <strong>Claude Burndown</strong> service in any environment.
+        Whether you stick with pure standard-library Python or adapt to FastAPI, Go, Rust, or Node.js,
+        this document specifies every data model, rate-limit formula, transcript parser rule, and integration contract.
+      </p>
+      <div class="pill-list">
+        <span class="pill green">Zero Telemetry (Strict Loopback 127.0.0.1)</span>
+        <span class="pill amber">Dual Monitoring: 5h Session & 7d Weekly</span>
+        <span class="pill blue">Incremental SQLite Token Ledger</span>
+        <span class="pill purple">Claude Code + Desktop Enterprise SSO</span>
+      </div>
+    </div>
+
+    <!-- Quick Filter & Search Bar -->
+    <div class="filter-bar">
+      <input type="text" id="searchInput" class="search-input" placeholder="Search steps (e.g., 'sqlite', 'statusline', 'math', 'desktop', 'service')...">
+      <div class="filter-tags">
+        <button class="filter-tag active" data-filter="all">All Phases</button>
+        <button class="filter-tag" data-filter="core">Core Logic</button>
+        <button class="filter-tag" data-filter="ingest">Ingestion</button>
+        <button class="filter-tag" data-filter="service">Daemon & API</button>
+        <button class="filter-tag" data-filter="ui">Web UI</button>
+        <button class="filter-tag" data-filter="os">OS & Hooks</button>
+      </div>
+    </div>
+
+    <!-- System Architecture Diagram -->
+    <div class="diag-container">
+      <h4 style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">High-Level System Topology</h4>
+      <svg class="arch-diag" viewBox="0 0 880 260" xmlns="http://www.w3.org/2000/svg">
+        <!-- Background boxes -->
+        <rect x="10" y="20" width="240" height="220" rx="8" fill="var(--bg-card-alt)" stroke="var(--border)" stroke-width="1.5" />
+        <text x="130" y="45" fill="var(--brand-color)" font-weight="bold" font-size="13" text-anchor="middle">1. INPUTS & SOURCES</text>
+
+        <rect x="270" y="20" width="340" height="220" rx="8" fill="var(--bg-card-alt)" stroke="var(--border)" stroke-width="1.5" />
+        <text x="440" y="45" fill="var(--accent-blue)" font-weight="bold" font-size="13" text-anchor="middle">2. STORAGE & PROCESSING</text>
+
+        <rect x="630" y="20" width="240" height="220" rx="8" fill="var(--bg-card-alt)" stroke="var(--border)" stroke-width="1.5" />
+        <text x="750" y="45" fill="var(--accent-green)" font-weight="bold" font-size="13" text-anchor="middle">3. INTERFACES & UI</text>
+
+        <!-- Source nodes -->
+        <rect x="25" y="65" width="210" height="40" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="130" y="89" fill="var(--text)" font-size="11" text-anchor="middle">Claude Code Statusline (stdin)</text>
+
+        <rect x="25" y="115" width="210" height="40" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="130" y="139" fill="var(--text)" font-size="11" text-anchor="middle">Claude Desktop (plan-usage.json)</text>
+
+        <rect x="25" y="165" width="210" height="40" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="130" y="189" fill="var(--text)" font-size="11" text-anchor="middle">Claude Transcripts (~/.claude/*.jsonl)</text>
+
+        <!-- Middle processing nodes -->
+        <rect x="285" y="65" width="140" height="65" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="355" y="90" fill="var(--text)" font-size="11" font-weight="bold" text-anchor="middle">Burndown Math</text>
+        <text x="355" y="108" fill="var(--text-muted)" font-size="10" text-anchor="middle">Pace, Delta, Runway</text>
+
+        <rect x="445" y="65" width="150" height="65" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="520" y="90" fill="var(--text)" font-size="11" font-weight="bold" text-anchor="middle">samples.jsonl</text>
+        <text x="520" y="108" fill="var(--text-muted)" font-size="10" text-anchor="middle">Append-only samples</text>
+
+        <rect x="285" y="145" width="140" height="80" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="355" y="170" fill="var(--text)" font-size="11" font-weight="bold" text-anchor="middle">Transcript Ingestion</text>
+        <text x="355" y="188" fill="var(--text-muted)" font-size="10" text-anchor="middle">Main, Subagents,</text>
+        <text x="355" y="204" fill="var(--text-muted)" font-size="10" text-anchor="middle">Workflows, Thinking</text>
+
+        <rect x="445" y="145" width="150" height="80" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="520" y="170" fill="var(--text)" font-size="11" font-weight="bold" text-anchor="middle">usage.sqlite (WAL)</text>
+        <text x="520" y="188" fill="var(--text-muted)" font-size="10" text-anchor="middle">Per-turn ledger events</text>
+        <text x="520" y="204" fill="var(--text-muted)" font-size="10" text-anchor="middle">Incremental scan_state</text>
+
+        <!-- UI & Output nodes -->
+        <rect x="645" y="65" width="210" height="45" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="750" y="88" fill="var(--text)" font-size="11" font-weight="bold" text-anchor="middle">HTTP :8787 + SSE</text>
+        <text x="750" y="102" fill="var(--text-muted)" font-size="10" text-anchor="middle">Live browser dashboard</text>
+
+        <rect x="645" y="120" width="210" height="45" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="750" y="143" fill="var(--text)" font-size="11" font-weight="bold" text-anchor="middle">CLI Subcommands</text>
+        <text x="750" y="157" fill="var(--text-muted)" font-size="10" text-anchor="middle">capacity, usage, backfill</text>
+
+        <rect x="645" y="175" width="210" height="45" rx="6" fill="var(--bg-surface)" stroke="var(--border)" />
+        <text x="750" y="198" fill="var(--text)" font-size="11" font-weight="bold" text-anchor="middle">Claude Code Integration</text>
+        <text x="750" y="212" fill="var(--text-muted)" font-size="10" text-anchor="middle">Statusline &amp; /burndown skill</text>
+      </svg>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 1: ENVIRONMENT & ARCHITECTURE SETUP -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="core">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">1</div>
+          <div>
+            <h3>Environment Scaffolding &amp; Configuration Architecture</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/4</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Establish the data root directory, paths resolution module, and package flexibility guidelines.</p>
+        
+        <div class="callout tip">
+          <div class="callout-title">💡 Package &amp; Runtime Flexibility</div>
+          The reference implementation uses <strong>Python 3.10+ Standard Library only</strong> (no <code>pip install</code> required!).
+          However, your target environment may freely use <strong>FastAPI / Pydantic / aiosqlite</strong>, or rewrite in <strong>Node.js / Go / Rust</strong>.
+          The non-negotiables are the <strong>file paths</strong>, <strong>data schemas</strong>, and <strong>loopback security</strong>.
+        </div>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-1-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="1-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>1.1 Define Path Resolution &amp; Environment Variables</span>
+                  <div class="step-tags"><span class="step-tag">config</span><span class="step-tag">paths</span></div>
+                </div>
+                <div class="step-detail">
+                  Implement a paths resolver honoring <code>CLAUDE_BURNDOWN_HOME</code> (defaulting to <code>~/.claude-burndown/</code>)
+                  and Claude directories (<code>CLAUDE_CONFIG_DIR</code> default <code>~/.claude</code>, <code>CLAUDE_PROJECTS_DIR</code> default <code>~/.claude/projects</code>).
+                </div>
+                <details class="guide-details">
+                  <summary>View Reference Paths Specification</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>Paths Dataclass (Python Reference)</span><button class="copy-btn">Copy</button></div>
+                      <pre><code>from pathlib import Path
+import os
+
+class Paths:
+    def __init__(self, home: Path):
+        self.home = home
+        self.samples = home / "samples.jsonl"
+        self.latest = home / "latest.json"
+        self.claude_desktop_state = home / "claude_desktop_state.json"
+        self.html = home / "burndown.html"
+        self.usage_db = home / "usage.sqlite"
+        self.log = home / "service.log"
+        self.lock = home / ".lock"
+        self.statusline_handoff = home / "statusline-handoff"
+
+def get_home() -> Path:
+    env = os.environ.get("CLAUDE_BURNDOWN_HOME") or os.environ.get("QUOTA_BURNDOWN_HOME")
+    return Path(env).expanduser() if env else Path.home() / ".claude-burndown"</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-1-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="1-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>1.2 Multi-Platform Claude Desktop Path Resolution</span>
+                  <div class="step-tags"><span class="step-tag">cross-platform</span><span class="step-tag">desktop</span></div>
+                </div>
+                <div class="step-detail">
+                  Discover <code>plan-usage-history.json</code> across Windows (Standard Roaming and MSIX Packaged Apps), macOS, and Linux.
+                </div>
+                <details class="guide-details">
+                  <summary>View Multi-Platform Search Logic</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>Desktop Discovery Algorithm</span><button class="copy-btn">Copy</button></div>
+                      <pre><code># Windows Candidates:
+# 1. %APPDATA%\Claude\plan-usage-history.json
+# 2. %LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\plan-usage-history.json (MSIX)
+# macOS Candidate:
+# ~/Library/Application Support/Claude/plan-usage-history.json
+# Linux Candidate:
+# ~/.config/Claude/plan-usage-history.json
+# Pick newest file by mtime if multiple exist.</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-1-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="1-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>1.3 Atomic File Writing Utility</span>
+                  <div class="step-tags"><span class="step-tag">util</span><span class="step-tag">concurrency</span></div>
+                </div>
+                <div class="step-detail">
+                  Implement crash-safe atomic write using a temporary sibling file (e.g. <code>target.tmp.UUID</code>) followed by atomic rename (<code>os.replace</code>). Never write directly to <code>latest.json</code> or state files.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-1-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="1-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>1.4 Module Skeleton &amp; Entry Points</span>
+                  <div class="step-tags"><span class="step-tag">scaffolding</span></div>
+                </div>
+                <div class="step-detail">
+                  Create the module hierarchy: <code>config</code>, <code>store</code>, <code>model</code>, <code>capacity</code>, <code>ledger</code>, <code>handoff</code>, <code>service</code>, <code>statusline</code>, <code>charts</code>, <code>render</code>, <code>install</code>, <code>cli</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 2: BURNDOWN MATHEMATICS & STATE MACHINE -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="core">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">2</div>
+          <div>
+            <h3>Burndown Mathematics &amp; Allowance State Engine</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/5</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Implement linear pacing, delta calculation, reset clustering, and runway forecasting for 5h and 7d windows.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-2-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="2-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>2.1 Window Definitions &amp; Reset Clustering</span>
+                  <div class="step-tags"><span class="step-tag">math</span><span class="step-tag">model</span></div>
+                </div>
+                <div class="step-detail">
+                  Support <code>5h</code> (300 min) and <code>7d</code> (10,080 min). Cluster samples into the same window instance if their reset timestamps differ by less than <code>RESET_TOLERANCE_S = 180s</code> (3 minutes).
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-2-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="2-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>2.2 Linear Pace &amp; Burn Rate Formulas</span>
+                  <div class="step-tags"><span class="step-tag">math</span><span class="step-tag">pace</span></div>
+                </div>
+                <div class="step-detail">
+                  Compute linear pace percentage and burn rate (%/hr). Projections require at least 3% window elapsed (<code>TOO_EARLY_FRACTION = 0.03</code>).
+                </div>
+                <details class="guide-details">
+                  <summary>View Exact Mathematical Formulas</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>Burndown Formulas</span><button class="copy-btn">Copy</button></div>
+                      <pre><code># Window start = resets_at - timedelta(minutes=window_min)
+# elapsed_minutes = max((now - window_start).total_seconds() / 60, 0.0)
+# elapsed_clamped = min(elapsed_minutes, window_min)
+# remaining_minutes = max(window_min - elapsed_minutes, 0.0)
+
+# Linear Pace (%)
+pace = 100.0 * (elapsed_clamped / window_min)
+
+# Delta (% points ahead or behind pace)
+delta = used_pct - pace
+
+# Burn Rate (% per hour)
+rate_per_hour = used_pct / (elapsed_clamped / 60.0) if elapsed_clamped > 0 else 0.0
+
+# Projected end % at reset time:
+projected_end = used_pct if (now >= resets_at) else used_pct + rate_per_hour * (remaining_minutes / 60.0)</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-2-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="2-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>2.3 Status State Machine Classification</span>
+                  <div class="step-tags"><span class="step-tag">state-machine</span></div>
+                </div>
+                <div class="step-detail">
+                  Classify window status into: <code>expired</code>, <code>exhausted</code>, <code>early</code>, <code>over</code>, <code>under</code>, <code>on-pace</code>, or <code>idle</code>. Use an on-pace band of ±2.0 percentage points.
+                </div>
+                <details class="guide-details">
+                  <summary>View Status Branch Logic</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>Status Resolution Logic</span><button class="copy-btn">Copy</button></div>
+                      <pre><code>if now >= resets_at:
+    status = "expired"
+elif used_pct >= 100.0:
+    status = "exhausted"
+elif elapsed_clamped < (0.03 * window_min):
+    status = "early"
+elif delta > 2.0:
+    status = "over"      # Burning faster than linear pace
+elif delta < -2.0:
+    status = "under"     # Burning slower than linear pace
+else:
+    status = "on-pace"   # Within ±2% band</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-2-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="2-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>2.4 Runway to Exhaustion Calculation</span>
+                  <div class="step-tags"><span class="step-tag">forecast</span></div>
+                </div>
+                <div class="step-detail">
+                  Calculate timestamp when allowance hits 100%: <code>exhaust_at = now + (100 - used_pct) / rate_per_hour</code>.
+                  Check if <code>exhaust_at &lt; resets_at</code> (will deplete before reset).
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-2-5">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="2-5">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>2.5 Reserve Policy Safety Buffer</span>
+                  <div class="step-tags"><span class="step-tag">policy</span></div>
+                </div>
+                <div class="step-detail">
+                  Maintain a configurable reserve threshold (default 10%). Calculate effective headroom <code>max(0.0, (100 - reserve_pct) - used_pct)</code> and runway to reserve limit.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 3: DUAL INGESTION — STATUSLINE & DESKTOP -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="ingest">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">3</div>
+          <div>
+            <h3>Dual Rate-Limit Ingestion Subsystems</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/5</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Collect live quota readings from Claude Code CLI prompt redraws and Claude Desktop history.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-3-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="3-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>3.1 Statusline stdin Parser &amp; Handoff Protocol</span>
+                  <div class="step-tags"><span class="step-tag">statusline</span><span class="step-tag">ipc</span></div>
+                </div>
+                <div class="step-detail">
+                  When Claude Code executes statusline hook, it feeds JSON on stdin. Parse <code>rate_limits.five_hour</code> and <code>rate_limits.seven_day</code>.
+                  Write atomic handoff files in <code>statusline-handoff/org_{hash}-{digest}.json</code> with TTL cleanup.
+                </div>
+                <details class="guide-details">
+                  <summary>View Statusline stdin Schema</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>Claude Code stdin JSON Sample</span><button class="copy-btn">Copy</button></div>
+                      <pre><code>{
+  "session_id": "8f3b2c1a-...",
+  "organization_id": "org_01ABC...",
+  "model": "claude-3-7-sonnet-20250219",
+  "rate_limits": {
+    "five_hour": {
+      "used_percentage": 34.2,
+      "resets_at": "2026-09-19T21:00:00.000Z"
+    },
+    "seven_day": {
+      "used_percentage": 58.0,
+      "resets_at": "2026-09-26T00:00:00.000Z"
+    }
+  }
+}</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-3-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="3-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>3.2 Statusline Redraw Suppression &amp; Provenance</span>
+                  <div class="step-tags"><span class="step-tag">statusline</span></div>
+                </div>
+                <div class="step-detail">
+                  Claude Code redraws frequently. If quota values haven't changed since last observation, do not update the observation timestamp so rate-per-hour calculations remain accurate.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-3-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="3-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>3.3 Claude Desktop History Parser</span>
+                  <div class="step-tags"><span class="step-tag">desktop</span><span class="step-tag">provider</span></div>
+                </div>
+                <div class="step-detail">
+                  Parse <code>plan-usage-history.json</code>: records formatted as <code>{"t": epoch_ms, "org": id, "u": {"fh": float, "sd": float}}</code>.
+                  Infer reset times based on usage drops (5h when session starts/drops to 0; 7d when usage drops below previous and &le; 1.0%).
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-3-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="3-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>3.4 Source Ranking &amp; Anti-Downgrade Arbitration</span>
+                  <div class="step-tags"><span class="step-tag">arbitration</span></div>
+                </div>
+                <div class="step-detail">
+                  Rank sources by fidelity: <code>statusline (rank 4)</code> &gt; <code>desktop (rank 2)</code> &gt; <code>desktop-history (rank 1)</code>.
+                  Reject any candidate observation that would overwrite a higher-ranked observation within a 30-second window.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-3-5">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="3-5">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>3.5 Store Append-Only Samples &amp; Latest Snapshot</span>
+                  <div class="step-tags"><span class="step-tag">storage</span></div>
+                </div>
+                <div class="step-detail">
+                  Persist raw samples to <code>samples.jsonl</code> (append-only) and publish current canonical burndown to <code>latest.json</code> via atomic rename.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 4: TOKEN LEDGER & TRANSCRIPT PARSING -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="ingest">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">4</div>
+          <div>
+            <h3>Token Ledger &amp; Incremental Transcript Ingestion</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/5</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Build the SQLite per-turn token usage ledger and parse Claude Code session JSONL transcripts.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-4-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="4-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>4.1 SQLite Ledger Schema &amp; WAL Mode</span>
+                  <div class="step-tags"><span class="step-tag">sqlite</span><span class="step-tag">database</span></div>
+                </div>
+                <div class="step-detail">
+                  Initialize <code>usage.sqlite</code> with WAL journal mode (<code>PRAGMA journal_mode=WAL</code>) and create <code>events</code> and <code>scan_state</code> tables.
+                </div>
+                <details class="guide-details">
+                  <summary>View Complete DDL Schema</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>SQLite DDL</span><button class="copy-btn">Copy</button></div>
+                      <pre><code>CREATE TABLE IF NOT EXISTS events (
+  provider TEXT NOT NULL,
+  tool TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  event_key TEXT NOT NULL,
+  ts TEXT NOT NULL,
+  session_id TEXT NOT NULL DEFAULT '',
+  thread TEXT NOT NULL DEFAULT '',
+  model TEXT NOT NULL DEFAULT '',
+  effort TEXT NOT NULL DEFAULT '',
+  input_tokens INTEGER,
+  cache_read_tokens INTEGER,
+  cache_write_tokens INTEGER,
+  output_tokens INTEGER,
+  reasoning_tokens INTEGER,
+  total_tokens INTEGER,
+  source_file TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (provider, kind, event_key)
+);
+
+CREATE INDEX IF NOT EXISTS events_ts ON events (ts);
+CREATE INDEX IF NOT EXISTS events_kind_ts ON events (kind, ts);
+CREATE INDEX IF NOT EXISTS events_session ON events (session_id);
+
+CREATE TABLE IF NOT EXISTS scan_state (
+  path TEXT PRIMARY KEY,
+  size INTEGER NOT NULL,
+  mtime REAL NOT NULL,
+  scanned_at TEXT NOT NULL
+);</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-4-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="4-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>4.2 Transcript Discovery &amp; Incremental Change Detection</span>
+                  <div class="step-tags"><span class="step-tag">scanner</span><span class="step-tag">transcripts</span></div>
+                </div>
+                <div class="step-detail">
+                  Recursively scan <code>~/.claude/projects/**/*.jsonl</code>. Compare file size and <code>mtime</code> against <code>scan_state</code> to only parse new or appended transcripts.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-4-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="4-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>4.3 Thread Classification (Main, Subagent, Workflow)</span>
+                  <div class="step-tags"><span class="step-tag">subagents</span><span class="step-tag">workflows</span></div>
+                </div>
+                <div class="step-detail">
+                  Examine transcript path: if path contains <code>/subagents/workflows/</code> classify as <code>workflow</code>;
+                  else if path contains <code>/subagents/</code> classify as <code>subagent</code>; otherwise <code>main</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-4-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="4-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>4.4 Token Extraction &amp; Extended Thinking Support</span>
+                  <div class="step-tags"><span class="step-tag">tokens</span><span class="step-tag">claude-3.7</span></div>
+                </div>
+                <div class="step-detail">
+                  Extract <code>input_tokens</code>, <code>cache_read_input_tokens</code>, <code>cache_creation_input_tokens</code>, <code>output_tokens</code>,
+                  and <code>output_tokens_details.thinking_tokens</code> (extended reasoning in Claude 3.7 Sonnet). Capture <code>effort</code> level.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-4-5">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="4-5">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>4.5 Multi-Chunk Stream Deduplication &amp; Upsert</span>
+                  <div class="step-tags"><span class="step-tag">dedup</span><span class="step-tag">upsert</span></div>
+                </div>
+                <div class="step-detail">
+                  Streaming writes multiple assistant lines sharing the same <code>message.id</code>. Upsert into SQLite where candidate with higher <code>output_tokens</code> updates the record.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 5: LOOPBACK DAEMON & REST/SSE API -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="service">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">5</div>
+          <div>
+            <h3>Loopback Background Microservice &amp; REST / SSE API</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/5</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Implement the local daemon on <code>127.0.0.1:8787</code> with background workers and real-time Server-Sent Events.</p>
+
+        <div class="callout warning">
+          <div class="callout-title">🔒 Strict Loopback Security Mandate</div>
+          The service must bind strictly to <code>127.0.0.1</code>. Every incoming HTTP request must verify that the <code>Host</code> header is loopback (<code>127.0.0.1</code>, <code>localhost</code>, or <code>::1</code>) and that any <code>Origin</code> header is also strictly loopback. Reject external requests with HTTP 403.
+        </div>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-5-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="5-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>5.1 Threaded HTTP Server &amp; Header Validation</span>
+                  <div class="step-tags"><span class="step-tag">http</span><span class="step-tag">security</span></div>
+                </div>
+                <div class="step-detail">
+                  Launch multi-threaded server on <code>127.0.0.1:8787</code> (or fallback port). Verify Host and Origin headers on every GET/POST.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-5-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="5-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>5.2 Background Collector Loop</span>
+                  <div class="step-tags"><span class="step-tag">thread</span><span class="step-tag">collector</span></div>
+                </div>
+                <div class="step-detail">
+                  Run a daemon thread every 5 seconds: drain statusline handoff files, poll desktop usage history, update <code>CapacityState</code>, and broadcast updates to SSE clients.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-5-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="5-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>5.3 Background Usage Ingestion Loop</span>
+                  <div class="step-tags"><span class="step-tag">thread</span><span class="step-tag">transcripts</span></div>
+                </div>
+                <div class="step-detail">
+                  Run a daemon thread every 15 seconds: scan <code>~/.claude/projects/</code> for changed transcripts, parse new tokens, upsert into SQLite, and invalidate page cache.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-5-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="5-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>5.4 REST API Endpoints Implementation</span>
+                  <div class="step-tags"><span class="step-tag">api</span><span class="step-tag">rest</span></div>
+                </div>
+                <div class="step-detail">
+                  Implement the full endpoint contract according to the specification table below.
+                </div>
+                <details class="guide-details">
+                  <summary>View Complete API Endpoint Specification</summary>
+                  <div class="details-body">
+                    <div class="table-wrap">
+                      <table class="spec-table">
+                        <thead>
+                          <tr><th>Method</th><th>Path</th><th>Description</th><th>Response</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr><td><code>GET</code></td><td><code>/</code>, <code>/burndown.html</code></td><td>Live interactive HTML dashboard</td><td><code>text/html</code></td></tr>
+                          <tr><td><code>GET</code></td><td><code>/v1/capacity</code></td><td>JSON rate limit snapshot &amp; runway</td><td><code>application/json</code></td></tr>
+                          <tr><td><code>GET</code></td><td><code>/v1/capacity/events</code></td><td>Server-Sent Events (SSE) quota stream</td><td><code>text/event-stream</code></td></tr>
+                          <tr><td><code>GET</code></td><td><code>/v1/usage</code></td><td>Aggregated token statistics by model/day</td><td><code>application/json</code></td></tr>
+                          <tr><td><code>GET</code></td><td><code>/v1/recent-text/download</code></td><td>Download recent prompts &amp; responses (json/jsonl)</td><td>File attachment</td></tr>
+                          <tr><td><code>GET</code></td><td><code>/v1/recent-text/{id}</code></td><td>Fetch prompt &amp; response text for turn</td><td><code>application/json</code> or <code>txt</code></td></tr>
+                          <tr><td><code>POST</code></td><td><code>/v1/policy</code></td><td>Update reserve percentage (<code>{"reserve_pct": 10}</code>)</td><td><code>{"status":"ok"}</code></td></tr>
+                          <tr><td><code>GET</code></td><td><code>/latest.json</code></td><td>Raw dictionary of latest window samples</td><td><code>application/json</code></td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-5-5">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="5-5">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>5.5 Service Supervisor / Watchdog</span>
+                  <div class="step-tags"><span class="step-tag">watchdog</span><span class="step-tag">reliability</span></div>
+                </div>
+                <div class="step-detail">
+                  Implement supervisor loop (<code>--supervise</code>) that probes <code>http://127.0.0.1:8787/v1/capacity</code> and restarts the child server process if it exits or fails health checks.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 6: WEB DASHBOARD & SVG CHARTS -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="ui">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">6</div>
+          <div>
+            <h3>Standalone Web Dashboard &amp; SVG Chart Engine</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/4</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Generate a zero-CDN, self-contained HTML page with SVG burndown charts and live SSE client updates.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-6-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="6-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>6.1 SVG Rate-Limit Burndown Chart Renderer</span>
+                  <div class="step-tags"><span class="step-tag">svg</span><span class="step-tag">visualization</span></div>
+                </div>
+                <div class="step-detail">
+                  Generate 800x320 SVG chart showing: percentage Y-axis (0-100%), time X-axis, shaded historical usage area, linear pace guideline, projected exhaust line, and hourly token volume bars.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-6-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="6-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>6.2 Dual Capacity Gauges &amp; Runway Cards</span>
+                  <div class="step-tags"><span class="step-tag">ui</span><span class="step-tag">dashboard</span></div>
+                </div>
+                <div class="step-detail">
+                  Render prominent cards for Current Session (5-hour) and Weekly (7-day), showing percentage used, pace delta (▲/▼), burn rate (%/hr), and countdown until reset.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-6-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="6-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>6.3 Token Breakdown Tables &amp; Cache Efficiency</span>
+                  <div class="step-tags"><span class="step-tag">tokens</span><span class="step-tag">analytics</span></div>
+                </div>
+                <div class="step-detail">
+                  Tabulate spend grouped by model and day: input, cache read, cache creation, output, thinking tokens, and cache hit percentage: <code>cache_read / (input + cache_read)</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-6-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="6-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>6.4 Prompt / Response Viewer &amp; SSE Live Reconnect</span>
+                  <div class="step-tags"><span class="step-tag">sse</span><span class="step-tag">inspector</span></div>
+                </div>
+                <div class="step-detail">
+                  Include an inspection modal/drawer to read raw turn text, and client-side JavaScript that connects to <code>/v1/capacity/events</code> with exponential backoff reconnect.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 7: CLI INTERFACE & SUBCOMMANDS -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="core">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">7</div>
+          <div>
+            <h3>Unified CLI &amp; Command-Line Interface</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/5</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Implement the complete set of CLI commands matching the standard specification.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-7-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="7-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>7.1 <code>serve</code> &amp; <code>capacity</code> Commands</span>
+                  <div class="step-tags"><span class="step-tag">cli</span></div>
+                </div>
+                <div class="step-detail">
+                  <code>serve [--host H] [--port P] [--supervise]</code> runs the background service.
+                  <code>capacity [--json] [--watch]</code> prints human-readable capacity or streams JSON lines.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-7-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="7-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>7.2 <code>usage</code> &amp; <code>backfill</code> Commands</span>
+                  <div class="step-tags"><span class="step-tag">cli</span></div>
+                </div>
+                <div class="step-detail">
+                  <code>usage [--days D] [--by DIMS] [--json] [--csv FILE]</code> queries the SQLite ledger.
+                  <code>backfill [--since-days N] [--rescan]</code> indexes all past Claude Code session transcripts.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-7-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="7-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>7.3 <code>statusline</code> Command</span>
+                  <div class="step-tags"><span class="step-tag">cli</span><span class="step-tag">statusline</span></div>
+                </div>
+                <div class="step-detail">
+                  Reads JSON from stdin, triggers handoff capture, and outputs formatted ANSI colored text (or plain text if <code>--no-color</code>):
+                  <code>Claude 5h: 34% p30 ▲4 · 7d: 58% p55 ▲3</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-7-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="7-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>7.4 <code>render</code> &amp; <code>collect</code> Commands</span>
+                  <div class="step-tags"><span class="step-tag">cli</span><span class="step-tag">static</span></div>
+                </div>
+                <div class="step-detail">
+                  <code>render</code> outputs a standalone <code>burndown.html</code> file without needing a running service.
+                  <code>collect</code> collects new desktop samples and updates <code>latest.json</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-7-5">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="7-5">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>7.5 <code>install</code> &amp; <code>uninstall</code> Commands</span>
+                  <div class="step-tags"><span class="step-tag">cli</span><span class="step-tag">install</span></div>
+                </div>
+                <div class="step-detail">
+                  Subcommands for registering statusline in <code>~/.claude/settings.json</code> and autostart background daemon with dry-run default (require <code>--apply</code>).
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 8: ENTERPRISE OS & AUTOSTART INTEGRATION -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="os">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">8</div>
+          <div>
+            <h3>Enterprise OS Integration &amp; Non-Admin Resilience</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/4</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Configure autostart on Windows, Linux, and macOS without requiring administrator privileges.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-8-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="8-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>8.1 Windows Non-Admin Autostart Fallback</span>
+                  <div class="step-tags"><span class="step-tag">windows</span><span class="step-tag">non-admin</span></div>
+                </div>
+                <div class="step-detail">
+                  Attempt Windows Task Scheduler (<code>schtasks /Create /TN ClaudeBurndownService ...</code>). If blocked by Group Policy (Access Denied),
+                  automatically fall back to creating a supervisor shortcut in <code>%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-8-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="8-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>8.2 Linux systemd User Service</span>
+                  <div class="step-tags"><span class="step-tag">linux</span><span class="step-tag">systemd</span></div>
+                </div>
+                <div class="step-detail">
+                  For Linux target machines, generate <code>~/.config/systemd/user/claude-burndown.service</code> and enable via <code>systemctl --user enable --now claude-burndown</code>.
+                </div>
+                <details class="guide-details">
+                  <summary>View Linux systemd Unit Template</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>claude-burndown.service</span><button class="copy-btn">Copy</button></div>
+                      <pre><code>[Unit]
+Description=Claude Burndown Capacity Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -B %h/Projects/claude-burndown/claude-burndown.py serve
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-8-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="8-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>8.3 macOS LaunchAgent Plist</span>
+                  <div class="step-tags"><span class="step-tag">macos</span><span class="step-tag">launchd</span></div>
+                </div>
+                <div class="step-detail">
+                  For macOS target machines, write <code>~/Library/LaunchAgents/com.user.claude-burndown.plist</code> and load via <code>launchctl load</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-8-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="8-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>8.4 Corporate Proxy Bypass Configuration</span>
+                  <div class="step-tags"><span class="step-tag">network</span><span class="step-tag">proxy</span></div>
+                </div>
+                <div class="step-detail">
+                  Ensure client code bypasses system HTTP proxies for loopback connections, and document setting <code>$env:NO_PROXY="127.0.0.1,localhost"</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 9: CLAUDE CODE PLUGIN & SKILL INTEGRATION -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="os">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">9</div>
+          <div>
+            <h3>Claude Code Statusline &amp; <code>/burndown</code> Skill Plugin</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/3</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Wire Claude Code CLI settings and slash commands so Claude can inspect its own quota directly.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-9-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="9-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>9.1 <code>~/.claude/settings.json</code> Statusline Injection</span>
+                  <div class="step-tags"><span class="step-tag">settings</span></div>
+                </div>
+                <div class="step-detail">
+                  Safely parse existing settings, add or update the <code>statusLine</code> object pointing to <code>claude-burndown.py statusline</code>, and format with 2-space indentation.
+                </div>
+                <details class="guide-details">
+                  <summary>View settings.json Snippet</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>~/.claude/settings.json</span><button class="copy-btn">Copy</button></div>
+                      <pre><code>{
+  "statusLine": {
+    "type": "command",
+    "command": "python3 /path/to/claude-burndown/claude-burndown.py statusline",
+    "refreshInterval": 60
+  }
+}</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-9-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="9-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>9.2 Create <code>skills/burndown/SKILL.md</code></span>
+                  <div class="step-tags"><span class="step-tag">skill</span><span class="step-tag">claude-code</span></div>
+                </div>
+                <div class="step-detail">
+                  Define the Claude Code skill allowing users or Claude to invoke <code>/burndown</code> or ask about quota headroom.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-9-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="9-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>9.3 Plugin Metadata (<code>.claude-plugin/plugin.json</code>)</span>
+                  <div class="step-tags"><span class="step-tag">plugin</span></div>
+                </div>
+                <div class="step-detail">
+                  Add <code>plugin.json</code> and <code>marketplace.json</code> so the repo can be mounted via <code>claude --plugin-dir .</code>.
+                </div>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- PHASE 10: VERIFICATION & TEST SUITE -->
+    <!-- ==================================================================== -->
+    <div class="phase-card" data-category="core">
+      <div class="phase-header">
+        <div class="phase-title-wrap">
+          <div class="phase-num">10</div>
+          <div>
+            <h3>Automated Testing Suite &amp; Final Verification</h3>
+          </div>
+        </div>
+        <div class="phase-meta">
+          <span class="phase-progress-pill">0/4</span>
+          <span class="phase-toggle-icon">▼</span>
+        </div>
+      </div>
+      <div class="phase-body">
+        <p class="phase-desc">Write unit and integration tests to verify the reconstructed service before deployment.</p>
+
+        <div class="step-list">
+
+          <div class="step-item" id="item-10-1">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="10-1">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>10.1 Burndown Math Unit Tests</span>
+                  <div class="step-tags"><span class="step-tag">pytest</span><span class="step-tag">tests</span></div>
+                </div>
+                <div class="step-detail">
+                  Test pace calculation, delta calculation, status transitions (over, under, on-pace, early, exhausted, expired), and runway forecasting.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-10-2">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="10-2">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>10.2 Transcript Parser &amp; Ledger Upsert Tests</span>
+                  <div class="step-tags"><span class="step-tag">pytest</span><span class="step-tag">transcripts</span></div>
+                </div>
+                <div class="step-detail">
+                  Test extraction of input tokens, cache read/write, output tokens, thinking tokens, prompt turn extraction, and multi-chunk deduplication.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-10-3">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="10-3">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>10.3 HTTP Service &amp; Loopback Security Tests</span>
+                  <div class="step-tags"><span class="step-tag">pytest</span><span class="step-tag">security</span></div>
+                </div>
+                <div class="step-detail">
+                  Verify loopback binding, Host/Origin rejection (403), JSON capacity response, and policy POST endpoint.
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="step-item" id="item-10-4">
+            <label class="step-label">
+              <input type="checkbox" class="step-checkbox" data-id="10-4">
+              <div class="step-content">
+                <div class="step-title">
+                  <span>10.4 End-to-End Sanity Check Run</span>
+                  <div class="step-tags"><span class="step-tag">e2e</span><span class="step-tag">sanity</span></div>
+                </div>
+                <div class="step-detail">
+                  Run backfill over local transcripts, query usage table, launch service, and verify dashboard renders on <code>http://127.0.0.1:8787/</code>.
+                </div>
+                <details class="guide-details">
+                  <summary>View Verification Terminal Commands</summary>
+                  <div class="details-body">
+                    <div class="code-block">
+                      <div class="code-header"><span>Terminal Verification Sequence</span><button class="copy-btn">Copy</button></div>
+                      <pre><code># 1. Run all unit tests
+python3 -B -m pytest -q
+
+# 2. Backfill existing transcripts
+python3 -B claude-burndown.py backfill --usage
+
+# 3. Check 7-day token usage ledger
+python3 -B claude-burndown.py usage --days 7
+
+# 4. Check live capacity (JSON)
+python3 -B claude-burndown.py capacity --json
+
+# 5. Launch dashboard service
+python3 -B claude-burndown.py serve
+# Open http://127.0.0.1:8787/ in browser!</code></pre>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- /container -->
+
+  <!-- Toast Notification -->
+  <div id="toast">Copied to clipboard!</div>
+
+  <!-- Interactive State Management Script -->
+  <script>
+    (function() {
+      const STORAGE_KEY = 'claude_burndown_recreate_checklist_v1';
+      const THEME_KEY = 'claude_burndown_theme';
+
+      // Elements
+      const checkboxes = document.querySelectorAll('.step-checkbox');
+      const progressFill = document.getElementById('progressFill');
+      const progressLabel = document.getElementById('progressLabel');
+      const btnReset = document.getElementById('btnReset');
+      const btnToggleAll = document.getElementById('btnToggleAll');
+      const btnTheme = document.getElementById('themeIcon');
+      const searchInput = document.getElementById('searchInput');
+      const filterTags = document.querySelectorAll('.filter-tag');
+      const phaseCards = document.querySelectorAll('.phase-card');
+      const toast = document.getElementById('toast');
+
+      // 1. Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem(THEME_KEY);
+        if (savedTheme) {
+          document.body.setAttribute('data-theme', savedTheme);
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+          document.body.setAttribute('data-theme', 'light');
+        }
+        updateThemeIcon();
+      }
+
+      function toggleTheme() {
+        const current = document.body.getAttribute('data-theme');
+        const next = current === 'light' ? 'dark' : 'light';
+        document.body.setAttribute('data-theme', next);
+        localStorage.setItem(THEME_KEY, next);
+        updateThemeIcon();
+      }
+
+      function updateThemeIcon() {
+        const current = document.body.getAttribute('data-theme');
+        btnTheme.textContent = current === 'light' ? '🌙' : '☀️';
+      }
+
+      document.getElementById('btnTheme').addEventListener('click', toggleTheme);
+      initTheme();
+
+      // 2. Checklist State
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function saveState(state) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (e) {}
+      }
+
+      function updateProgress() {
+        const state = loadState();
+        let checkedCount = 0;
+        const total = checkboxes.length;
+
+        checkboxes.forEach(cb => {
+          const id = cb.getAttribute('data-id');
+          const isChecked = !!state[id];
+          cb.checked = isChecked;
+          const item = cb.closest('.step-item');
+          if (item) {
+            if (isChecked) {
+              item.classList.add('checked');
+              checkedCount++;
+            } else {
+              item.classList.remove('checked');
+            }
+          }
+        });
+
+        // Update overall progress bar
+        const pct = total > 0 ? Math.round((checkedCount / total) * 100) : 0;
+        progressFill.style.width = pct + '%';
+        progressLabel.textContent = `${checkedCount} / ${total} (${pct}%)`;
+
+        // Update per-phase pills
+        phaseCards.forEach(card => {
+          const phaseCbs = card.querySelectorAll('.step-checkbox');
+          const phaseTotal = phaseCbs.length;
+          let phaseChecked = 0;
+          phaseCbs.forEach(c => {
+            if (c.checked) phaseChecked++;
+          });
+          const pill = card.querySelector('.phase-progress-pill');
+          if (pill) {
+            pill.textContent = `${phaseChecked}/${phaseTotal}`;
+            if (phaseChecked === phaseTotal && phaseTotal > 0) {
+              pill.style.background = 'var(--accent-green)';
+              pill.style.color = 'white';
+              pill.style.borderColor = 'var(--accent-green)';
+            } else {
+              pill.style.background = 'var(--bg-surface)';
+              pill.style.color = 'var(--text-muted)';
+              pill.style.borderColor = 'var(--border)';
+            }
+          }
+        });
+      }
+
+      checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+          const id = this.getAttribute('data-id');
+          const state = loadState();
+          state[id] = this.checked;
+          saveState(state);
+          updateProgress();
+        });
+      });
+
+      btnReset.addEventListener('click', function() {
+        if (confirm('Reset all progress checkboxes?')) {
+          localStorage.removeItem(STORAGE_KEY);
+          updateProgress();
+          showToast('Progress reset!');
+        }
+      });
+
+      // 3. Expand / Collapse Phases
+      let allExpanded = true;
+      btnToggleAll.addEventListener('click', function() {
+        allExpanded = !allExpanded;
+        phaseCards.forEach(card => {
+          if (allExpanded) {
+            card.classList.remove('collapsed');
+          } else {
+            card.classList.add('collapsed');
+          }
+        });
+        btnToggleAll.querySelector('span').textContent = allExpanded ? 'Collapse All' : 'Expand All';
+      });
+
+      phaseCards.forEach(card => {
+        const header = card.querySelector('.phase-header');
+        header.addEventListener('click', function(e) {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+          card.classList.toggle('collapsed');
+        });
+      });
+
+      // 4. Search & Filter
+      function applyFilter() {
+        const query = searchInput.value.toLowerCase().trim();
+        const activeFilterBtn = document.querySelector('.filter-tag.active');
+        const activeCategory = activeFilterBtn ? activeFilterBtn.getAttribute('data-filter') : 'all';
+
+        phaseCards.forEach(card => {
+          const cardCategory = card.getAttribute('data-category');
+          const categoryMatches = (activeCategory === 'all' || cardCategory === activeCategory);
+
+          let cardHasVisibleStep = false;
+          const steps = card.querySelectorAll('.step-item');
+
+          steps.forEach(step => {
+            const text = step.textContent.toLowerCase();
+            const textMatches = !query || text.includes(query);
+
+            if (categoryMatches && textMatches) {
+              step.style.display = '';
+              cardHasVisibleStep = true;
+            } else {
+              step.style.display = 'none';
+            }
+          });
+
+          if (cardHasVisibleStep) {
+            card.style.display = '';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      }
+
+      searchInput.addEventListener('input', applyFilter);
+
+      filterTags.forEach(btn => {
+        btn.addEventListener('click', function() {
+          filterTags.forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          applyFilter();
+        });
+      });
+
+      // 5. Code Copy Buttons
+      function showToast(msg) {
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2000);
+      }
+
+      document.querySelectorAll('.copy-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const pre = this.closest('.code-block').querySelector('pre');
+          if (pre) {
+            navigator.clipboard.writeText(pre.innerText).then(() => {
+              showToast('Code copied to clipboard!');
+            }).catch(() => {
+              showToast('Failed to copy code');
+            });
+          }
+        });
+      });
+
+      // Initialize
+      updateProgress();
+    })();
+  </script>
+</body>
+</html>

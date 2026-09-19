@@ -164,3 +164,13 @@ To verify everything on your system:
 ```powershell
 py -B -m pytest -q
 ```
+
+---
+
+## Recreating from Scratch (Agent & Developer Blueprint)
+
+If you are an agent or developer looking to recreate this system on another machine from scratch (or adapt it to a different tech stack such as FastAPI, Node.js, or Go), open the interactive guide:
+
+- **Interactive Checklist & Architecture Blueprint**: [`RECREATE.html`](RECREATE.html)
+- Includes step-by-step phases, code snippets, database schemas, burndown formulas, and persistent checkboxes that save your progress as you build.
+
